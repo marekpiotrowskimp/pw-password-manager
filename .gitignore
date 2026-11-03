@@ -1,0 +1,57 @@
+# Build directories
+build/
+build-win64/
+cmake-build-*/
+out/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Cache directories
+.cache/
+
+# vcpkg installed dependencies
+vcpkg_installed/
+
+# Dependencies (can be downloaded/built by build.sh)
+deps/libsodium-stable/
+deps/libsodium-win64/
+
+# Compiled binaries
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+pw
+pw_tests
+
+# Vault files (sensitive data)
+.pw_vault
+.pw_keyfile
+*.key
+
+# Export files (may contain passwords)
+passwords.json
+passwords.csv
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Testing
+Testing/
+CTestTestfile.cmake
+
+# sekrety / system
+.env
+secrets.h
+secrets.py

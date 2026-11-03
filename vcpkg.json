@@ -1,0 +1,10 @@
+{
+  "name": "pw",
+  "version": "1.0.0",
+  "description": "Local TUI Password Manager",
+  "dependencies": [
+    "libsodium",
+    "nlohmann-json",
+    "gtest"
+  ]
+}

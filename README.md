@@ -1,21 +1,21 @@
 # PW - Local Password Manager
 
-Bezpieczny, lokalny menedżer haseł CLI napisany w C++. Zero chmury, zero zależności sieciowych.
+A secure, local command-line password manager written in C++. No cloud, no network dependencies.
 
-## Cechy
+## Features
 
-- **Offline** - wszystkie dane przechowywane lokalnie w bieżącym katalogu
-- **Podwójne szyfrowanie** - cały plik + każde hasło osobno
-- **Cross-platform** - Windows i macOS
-- **Zero zależności runtime** - pojedynczy plik wykonywalny
+- **Offline** - all data is stored locally in the current directory
+- **Double encryption** - the whole file + every password separately
+- **Cross-platform** - Windows and macOS
+- **No runtime dependencies** - a single executable
 
-## Bezpieczeństwo
+## Security
 
-### Szyfrowanie dwuwarstwowe
+### Two-layer encryption
 
 ```
 ┌─────────────────────────────────────────────────┐
-│         Warstwa 1: Cały plik                    │
+│         Layer 1: whole file                     │
 │           (XChaCha20-Poly1305)                  │
 │  ┌───────────────────────────────────────────┐  │
 │  │  {                                        │  │
@@ -23,7 +23,7 @@ Bezpieczny, lokalny menedżer haseł CLI napisany w C++. Zero chmury, zero zale�
 │  │      {                                    │  │
 │  │        "name": "github",                  │  │
 │  │        "username": "user@mail.com",       │  │
-│  │        "password": "████████",  ◄─────────│──│─ Warstwa 2
+│  │        "password": "████████",  ◄─────────│──│─ Layer 2
 │  │        "url": "..."                       │  │  (AES-256-GCM)
 │  │      }                                    │  │
 │  │    ]                                      │  │
@@ -32,14 +32,14 @@ Bezpieczny, lokalny menedżer haseł CLI napisany w C++. Zero chmury, zero zale�
 └─────────────────────────────────────────────────┘
 ```
 
-### Derivacja klucza
+### Key derivation
 
 ```
-Master Password (+ opcjonalnie keyfile)
+Master password (+ optional keyfile)
                 │
                 ▼
          ┌─────────────┐
-         │  Argon2id   │  ← Memory: 64MB, Iterations: 3
+         │  Argon2id   │  ← Memory: 64 MB, Iterations: 3
          └─────────────┘
                 │
                 ▼
@@ -47,68 +47,68 @@ Master Password (+ opcjonalnie keyfile)
                 │
         ┌───────┴───────┐
         ▼               ▼
-   256-bit Key     256-bit Key
-   (plik)          (hasła)
+   256-bit key     256-bit key
+   (file)          (passwords)
 ```
 
-### Tryby uwierzytelniania
+### Authentication modes
 
-| Tryb | Opis | Użycie |
-|------|------|--------|
-| Master password | Pojedyncze hasło | Codzienne użycie |
-| Master password + keyfile | Hasło + plik klucza | Wysokie bezpieczeństwo |
+| Mode | Description | Use |
+|------|-------------|-----|
+| Master password | A single password | Everyday use |
+| Master password + keyfile | Password + key file | High security |
 
-### Hasło paniki (Duress Password)
+### Duress password
 
-Funkcja bezpieczeństwa dla sytuacji awaryjnych. Po wprowadzeniu hasła paniki zamiast master password:
+A safety feature for emergencies. When the duress password is entered instead of the master password:
 
-1. **Bezpieczne usunięcie** wszystkich danych (3-krotne nadpisanie losowymi danymi)
-2. **Usunięcie keyfile** (jeśli skonfigurowany)
-3. **Utworzenie fałszywego vault** który wygląda na uszkodzony
-4. **Opcjonalne usunięcie aplikacji**
+1. **Secure wipe** of all data (overwritten 3 times with random data)
+2. **Keyfile deletion** (if configured)
+3. **A fake vault is created** that looks corrupted
+4. **Optional deletion of the application**
 
-Atakujący zobaczy: `"Vault file is corrupted"`
+An attacker sees: `"Vault file is corrupted"`
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    DURESS PASSWORD                          │
 ├─────────────────────────────────────────────────────────────┤
-│  Wpisanie hasła paniki:                                     │
+│  Entering the duress password:                              │
 │                                                             │
-│    1. Secure wipe vault (3x random + zeros)                │
-│    2. Usuń keyfile                                          │
-│    3. Utwórz fake "uszkodzony" vault                        │
-│    4. (opcja) Usuń aplikację                                │
+│    1. Secure wipe of the vault (3x random + zeros)          │
+│    2. Delete the keyfile                                    │
+│    3. Create a fake "corrupted" vault                       │
+│    4. (optional) Delete the application                     │
 │                                                             │
-│  Wynik: "Vault file is corrupted"                           │
+│  Result: "Vault file is corrupted"                          │
 │                                                             │
-│  ⚠️  NIEODWRACALNE - wszystkie dane zostaną utracone        │
+│  ⚠️  IRREVERSIBLE - all data will be lost                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Format pliku vault
+## Vault file format
 
-Plik `.pw_vault` w bieżącym katalogu (format v2):
+The `.pw_vault` file in the current directory (format v2):
 
 ```
 ┌────────────────────────────────────┐
 │ Magic: "PWVAULT1" (8 bytes)        │
 │ Version: uint32 (4 bytes)          │
-│ Flags: uint8 (1 byte)              │  ← v2: flagi vault
-│ Duress hash: 32 bytes (jeśli flag) │  ← v2: hash hasła paniki
+│ Flags: uint8 (1 byte)              │  ← v2: vault flags
+│ Duress hash: 32 bytes (if flag)    │  ← v2: duress password hash
 │ Keyfile path length: uint16        │
-│ Keyfile path: string (jeśli jest)  │
+│ Keyfile path: string (if present)  │
 │ Salt: 32 bytes                     │
 │ Nonce: 24 bytes                    │
 │ Encrypted data + auth tag          │
 └────────────────────────────────────┘
 ```
 
-**Flagi vault:**
-- `0x01` - Duress password włączone
-- `0x02` - Usuwać aplikację przy użyciu hasła paniki
+**Vault flags:**
+- `0x01` - duress password enabled
+- `0x02` - delete the application when the duress password is used
 
-### Struktura danych (po odszyfrowaniu warstwy 1)
+### Data structure (after decrypting layer 1)
 
 ```json
 {
@@ -130,87 +130,86 @@ Plik `.pw_vault` w bieżącym katalogu (format v2):
 }
 ```
 
-## Instalacja
+## Installation
 
-### Wymagania do kompilacji
+### Build requirements
 
 **macOS:**
 - CMake 3.16+
 - Clang (Xcode Command Line Tools)
 - libsodium: `brew install libsodium`
 
-**Cross-kompilacja Windows (z macOS):**
+**Windows cross-compilation (from macOS):**
 - mingw-w64: `brew install mingw-w64`
-- libsodium dla Windows (budowane automatycznie przez skrypt)
+- libsodium for Windows (built automatically by the script)
 
-### Budowanie
+### Building
 
 ```bash
-# Klonowanie
-git clone https://github.com/user/pw.git
-cd pw
+git clone https://github.com/marekpiotrowskimp/pw-password-manager.git
+cd pw-password-manager
 
-# Budowanie obu platform (macOS + Windows)
+# Build both platforms (macOS + Windows)
 ./build.sh
 
-# Tylko macOS
+# macOS only
 ./build.sh macos
 
-# Tylko Windows .exe
+# Windows .exe only
 ./build.sh windows
 
-# Testy
+# Tests
 ./build.sh test
 
-# Czyszczenie
+# Clean
 ./build.sh clean
 ```
 
-### Wynikowe pliki
+### Output files
 
-| Platforma | Plik | Rozmiar |
-|-----------|------|---------|
+| Platform | File | Size |
+|----------|------|------|
 | macOS (arm64) | `build/pw` | ~1.7 MB |
 | Windows (x64) | `build-win64/pw.exe` | ~16 MB |
 
-Plik Windows .exe jest w pełni statyczny - nie wymaga żadnych DLL.
+The Windows .exe is fully static - it needs no DLLs.
 
-## Użycie na pendrive (portable)
+## Portable use on a USB stick
 
-Aplikacja jest zaprojektowana do przenośnego użycia na pendrive:
+The application is designed to be carried on a USB stick:
 
 ```
-/PENDRIVE/
+/USBSTICK/
 ├── pw           # macOS binary
 ├── pw.exe       # Windows binary
-├── .pw_vault    # Zaszyfrowany vault (tworzony automatycznie)
-└── .pw_keyfile  # Opcjonalny plik klucza
+├── .pw_vault    # Encrypted vault (created automatically)
+└── .pw_keyfile  # Optional key file
 ```
 
 **macOS:**
 ```bash
-chmod +x /Volumes/PENDRIVE/pw   # Tylko pierwszy raz
-/Volumes/PENDRIVE/pw
+chmod +x /Volumes/USBSTICK/pw   # first time only
+/Volumes/USBSTICK/pw
 ```
 
 **Windows:**
-- Podwójne kliknięcie na `pw.exe`
-- Lub z wiersza poleceń: `E:\pw.exe`
+- Double-click `pw.exe`
+- Or from the command line: `E:\pw.exe`
 
-Aplikacja automatycznie wykrywa swój katalog i szuka/tworzy vault w tym samym miejscu.
+The application detects its own directory and looks for (or creates) the vault in the same place.
 
-## Użycie
+## Usage
 
-### Inicjalizacja
+### Initialization
 
 ```bash
-# Nowy vault z master password
+# New vault with a master password
 pw init
 > Create master password: ********
 > Confirm password: ********
 ✓ Vault created: .pw_vault
 
-# Nowy vault z keyfile (wyższe bezpieczeństwo)
+# New vault with a keyfile (higher security)
 pw init --keyfile ~/.pw.key
 > Create master password: ********
 > Confirm password: ********
@@ -218,10 +217,10 @@ pw init --keyfile ~/.pw.key
 ✓ Vault created: .pw_vault
 ```
 
-### Zarządzanie wpisami
+### Managing entries
 
 ```bash
-# Dodawanie wpisu
+# Add an entry
 pw add github
 > Master password: ********
 > Username: user@example.com
@@ -230,7 +229,7 @@ pw add github
 > Notes (optional): 2FA enabled
 ✓ Entry 'github' added
 
-# Dodawanie z wygenerowanym hasłem
+# Add with a generated password
 pw add github --generate
 > Master password: ********
 > Username: user@example.com
@@ -238,17 +237,17 @@ pw add github --generate
 ✓ Generated password: Kj9#mP2$xL5@nQ8
 ✓ Entry 'github' added
 
-# Pobieranie hasła (kopiuje do clipboard)
+# Get a password (copies to the clipboard)
 pw get github
 > Master password: ********
 ✓ Password copied to clipboard (clears in 30s)
 
-# Wyświetlanie hasła
+# Show a password
 pw get github --show
 > Master password: ********
 Password: Kj9#mP2$xL5@nQ8
 
-# Lista wpisów
+# List entries
 pw list
 > Master password: ********
 NAME          USERNAME              URL
@@ -256,122 +255,120 @@ github        user@example.com      https://github.com
 aws           admin@company.com     https://aws.amazon.com
 bank          john.doe              https://bank.com
 
-# Wyszukiwanie
+# Search
 pw search git
 > Master password: ********
 NAME          USERNAME              URL
 github        user@example.com      https://github.com
 gitlab        user@example.com      https://gitlab.com
 
-# Usuwanie
+# Delete
 pw rm github
 > Master password: ********
 > Confirm deletion of 'github'? [y/N]: y
 ✓ Entry 'github' deleted
 ```
 
-### Generator haseł
+### Password generator
 
 ```bash
-# Domyślne (20 znaków)
+# Default (20 characters)
 pw generate
 Kj9#mP2$xL5@nQ8wR3&t
 
-# Określona długość
+# Specific length
 pw generate 32
 Kj9#mP2$xL5@nQ8wR3&tYm4^vB7*cD1!
 
-# Bez symboli
+# Without symbols
 pw generate 16 --no-symbols
 Kj9mP2xL5nQ8wR3t
 
-# Tylko alfanumeryczne
+# Alphanumeric only
 pw generate 16 --alphanumeric
 Kj9mP2xL5nQ8wR3t
 ```
 
-### Konfiguracja
+### Configuration
 
 ```bash
-# Dodanie keyfile do istniejącego vault
+# Add a keyfile to an existing vault
 pw config --add-keyfile ~/.pw.key
 > Master password: ********
 ✓ Generated keyfile: ~/.pw.key
 ✓ Vault re-encrypted
 
-# Zmiana master password
+# Change the master password
 pw config --change-password
 > Current password: ********
 > New password: ********
 > Confirm new password: ********
 ✓ Password changed
 
-# Usunięcie keyfile
+# Remove the keyfile
 pw config --remove-keyfile
 > Master password: ********
 ✓ Keyfile removed, vault re-encrypted
 ```
 
-### Hasło paniki (Duress Password)
+### Duress password
 
 ```bash
-# W menu interaktywnym: Settings > Duress password
+# In the interactive menu: Settings > Duress password
 
-# Włączenie hasła paniki
+# Enable the duress password
 > Enter current master password: ********
 > Enter new duress password: ****
 > Confirm duress password: ****
 > Delete application when duress password is used? [y/N]: y
 ✓ Duress password configured!
 
-# Po wpisaniu hasła paniki przy logowaniu:
+# After entering the duress password at login:
 > Master password: ****
 [!] Vault file is corrupted
 [*] The vault file appears to be damaged and cannot be opened.
 [*] You may need to restore from backup.
 ```
 
-**Ostrzeżenie:** Użycie hasła paniki jest **NIEODWRACALNE**. Wszystkie dane 
-zostaną trwale usunięte. Używaj tylko w sytuacjach awaryjnych.
+**Warning:** using the duress password is **IRREVERSIBLE**. All data
+is permanently deleted. Use it only in an emergency.
 
-### Backup i eksport
+### Backup and export
 
 ```bash
-# Eksport zaszyfrowany (pełny backup)
+# Encrypted export (full backup)
 pw export backup.pwvault
 > Master password: ********
 ✓ Exported to backup.pwvault
 
-# Import z backupu
+# Import from a backup
 pw import backup.pwvault
 > Backup password: ********
 > Current vault password: ********
 ✓ Imported 15 entries
 ```
 
-## Struktura projektu
+## Project structure
 
 ```
-password/
+pw-password-manager/
 ├── CMakeLists.txt
-├── build.sh               # Skrypt budowania (macOS + Windows)
+├── build.sh               # Build script (macOS + Windows)
 ├── vcpkg.json
-├── README.md
 ├── cmake/
-│   └── toolchain-mingw64.cmake  # Toolchain dla Windows cross-compile
+│   └── toolchain-mingw64.cmake  # Toolchain for the Windows cross-compile
 ├── deps/
-│   ├── libsodium-stable/  # Źródła libsodium
-│   ├── libsodium-win64/   # Skompilowany libsodium dla Windows
+│   ├── libsodium-1.0.20-stable.tar.gz  # libsodium sources (Windows build)
 │   └── nlohmann/          # json.hpp header
 ├── include/
-│   ├── crypto.hpp         # Szyfrowanie/deszyfrowanie
-│   ├── vault.hpp          # Zarządzanie vault
-│   ├── entry.hpp          # Struktura wpisu
-│   ├── clipboard.hpp      # Obsługa schowka
-│   ├── generator.hpp      # Generator haseł
-│   └── secure_string.hpp  # Bezpieczny string (auto-zerowanie)
+│   ├── crypto.hpp         # Encryption/decryption
+│   ├── vault.hpp          # Vault management
+│   ├── entry.hpp          # Entry structure
+│   ├── clipboard.hpp      # Clipboard handling
+│   ├── generator.hpp      # Password generator
+│   └── secure_string.hpp  # Secure string (auto-zeroing)
 ├── src/
-│   ├── main.cpp           # Główny program (interaktywne menu)
+│   ├── main.cpp           # Main program (interactive menu)
 │   ├── crypto.cpp
 │   ├── vault.cpp
 │   ├── entry.cpp
@@ -386,35 +383,37 @@ password/
     └── test_generator.cpp
 ```
 
-## Zależności
+`build.sh windows` builds libsodium for Windows into `deps/libsodium-win64/` (not committed).
 
-| Biblioteka | Wersja | Cel |
-|------------|--------|-----|
-| libsodium | 1.0.18+ | Kryptografia (Argon2id, XChaCha20-Poly1305, AES-GCM) |
-| nlohmann/json | 3.11+ | Parsowanie JSON (header-only, bundled) |
+## Dependencies
 
-## Bezpieczeństwo - szczegóły implementacji
+| Library | Version | Purpose |
+|---------|---------|---------|
+| libsodium | 1.0.18+ | Cryptography (Argon2id, XChaCha20-Poly1305, AES-GCM) |
+| nlohmann/json | 3.11+ | JSON parsing (header-only, bundled) |
 
-### Ochrona pamięci
+## Security - implementation details
 
-- Wrażliwe dane (hasła, klucze) przechowywane w `SecureString`
-- Automatyczne zerowanie pamięci przy destrukcji (`sodium_memzero`)
-- Blokada kopiowania wrażliwych obiektów
+### Memory protection
+
+- Sensitive data (passwords, keys) is kept in `SecureString`
+- Memory is zeroed automatically on destruction (`sodium_memzero`)
+- Sensitive objects cannot be copied
 
 ### Clipboard
 
-- Automatyczne czyszczenie po 30 sekundach
-- Nadpisanie przed wyczyszczeniem
+- Cleared automatically after 30 seconds
+- Overwritten before clearing
 
-### Generowanie losowości
+### Randomness
 
-- `randombytes_buf()` z libsodium (CSPRNG)
-- Entropia z systemu operacyjnego
+- `randombytes_buf()` from libsodium (CSPRNG)
+- Entropy from the operating system
 
-## Licencja
+## License
 
-MIT
+MIT — see [LICENSE](LICENSE). libsodium is ISC-licensed, nlohmann/json is MIT-licensed.
 
-## Autor
+## Author
 
-[Twoje dane]
+Marek Piotrowski
